@@ -47,9 +47,9 @@ def preprocess_input(gender, race, parental_edu, school_type, locale,
 
 # Main app
 def main():
-    st.set_page_config(page_title="Student Performance Predictor", page_icon="🎓")
+    st.set_page_config(page_title="Student Performance Predictor", page_icon="")
     
-    st.title("🎓 Student Performance Predictor")
+    st.title("Student Performance Predictor")
     st.write("""
     This app predicts a student's GPA based on various factors.
     Please fill in the student's information below.
