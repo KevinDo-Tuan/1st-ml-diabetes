@@ -60,7 +60,7 @@ data["Locale"] = data["Locale"].map(place)
 
 X = data.drop("GPA", axis=1) 
 X = X.drop("TestScore_Math", axis =1)
-X = X.drop(  "TestScore_Reading", axis =1)
+X = X.drop("TestScore_Reading", axis =1)
 X = X.drop("TestScore_Science", axis =1)
 
 Y = data["GPA"]
