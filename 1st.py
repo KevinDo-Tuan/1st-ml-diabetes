@@ -71,18 +71,25 @@ check_data()
  
 def train_model():
     try:
-        model = MLPRegressor(hidden_layer_sizes=(23, 12, 53, 34)
-        ,
-        max_iter=70,
-        random_state=65)
+        model = MLPRegressor(hidden_layer_sizes=(23, 12, 53, 34),
+                           max_iter=70,
+                           random_state=65)
         
         print("Training the neural network model...please wait")
         model.fit(X_train, Y_train)
+        
+        # Add feature names to the model for reference
+        model.feature_names_in_ = X_train.columns.tolist()
         
         # Save the trained model
         import joblib
         joblib.dump(model, 'student_performance_model.pkl')
         print("Model saved as 'student_performance_model.pkl'")
+        
+        # Print the feature names in order for debugging
+        print("\nFeatures used in training (in order):")
+        for i, col in enumerate(X_train.columns):
+            print(f"{i+1}. {col}")
         
         print("Data is trained")
         v = model.predict(X_test)

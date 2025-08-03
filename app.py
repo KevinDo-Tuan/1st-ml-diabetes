@@ -10,40 +10,125 @@ def load_model():
     # We'll modify the train_model function to save and load the model
     try:
         model = joblib.load('student_performance_model.pkl')
+        
+        # Add debug information about the model
+        try:
+            if hasattr(model, 'feature_names_in_'):
+                print("Model expects features in this order:")
+                for i, name in enumerate(model.feature_names_in_):
+                    print(f"{i+1}. {name}")
+        except Exception as e:
+            print(f"Could not get feature names: {e}")
+            
         return model
-    except:
+    except Exception as e:
+        print(f"Error loading model: {e}")
         return None
 
 # Preprocess input data
-def preprocess_input(gender, race, parental_edu, school_type, locale, 
-                   lunch, test_prep, attendance, math_score, reading_score, writing_score):
-    # Map categorical variables to numerical values
+def preprocess_input():
+    # Map categorical variables to numerical values (must match training data)
     gender_map = {"Female": 0, "Male": 1}
     race_map = {
         "Black": 0, "White": 1, "Hispanic": 2, 
-        "Two or more races": 3, "Asian": 4, "Other": 5
+        "Two or more": 3, "Asian": 4, "Other": 5
     }
-    edu_map = {"High School": 0, "Less than High School": 1, 
-              "Bachelor's Degree or Higher": 2, "Some College": 3}
+    edu_map = {
+        "High School": 0, 
+        "Less than High School": 1, 
+        "Bachelor's Degree or Higher": 2, 
+        "Some College": 3
+    }
     school_map = {"Public": 0, "Private": 1}
     locale_map = {"Suburban": 0, "City": 1, "Town": 3, "Rural": 4}
     
-    # Create input array
+    # Create input form
+    st.header("Student Information")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        gender = st.selectbox("Gender", ["Female", "Male"])
+        race = st.selectbox("Race/Ethnicity", 
+                         ["Black", "White", "Hispanic", 
+                          "Two or more", "Asian", "Other"])
+        parental_edu = st.selectbox("Parental Education Level",
+                                 ["High School", "Less than High School",
+                                  "Bachelor's Degree or Higher", "Some College"])
+        school_type = st.selectbox("School Type", ["Public", "Private"])
+        
+    with col2:
+        locale = st.selectbox("Locale", 
+                            ["Suburban", "City", "Town", "Rural"])
+        lunch = st.selectbox("Lunch Type", 
+                           ["Standard", "Free/Reduced"])
+        test_prep = st.selectbox("Test Preparation", 
+                               ["None", "Completed"])
+        attendance = st.slider("Attendance Rate (%)", 0, 100, 90)
+    
+    st.subheader("Test Scores (0-100)")
+    score_col1, score_col2, score_col3 = st.columns(3)
+    with score_col1:
+        math_score = st.number_input("Math Score", 0, 100, 70)
+    with score_col2:
+        reading_score = st.number_input("Reading Score", 0, 100, 75)
+    with score_col3:
+        writing_score = st.number_input("Writing Score", 0, 100, 72)
+    
+    # Additional required fields with default values
+    st.subheader("Additional Information")
+    col3, col4 = st.columns(2)
+    with col3:
+        age = st.number_input("Age", min_value=10, max_value=30, value=18)
+        internet_access = st.selectbox("Internet Access", ["Yes", "No"])
+        parent_support = st.selectbox("Parental Support", ["Yes", "No"])
+    with col4:
+        part_time_job = st.selectbox("Part-time Job", ["Yes", "No"])
+        romantic = st.selectbox("In a Relationship", ["Yes", "No"])
+        
+    # Create input dictionary with exact feature names from training
+    # Note: The order of these features must match exactly with the training data
     input_data = {
         'Gender': gender_map[gender],
         'Race': race_map[race],
         'ParentalEducation': edu_map[parental_edu],
         'SchoolType': school_map[school_type],
         'Locale': locale_map[locale],
-        'Lunch': 1 if lunch == "Free/Reduced" else 0,
-        'TestPrep': 1 if test_prep == "Completed" else 0,
-        'Attendance': attendance,
-        'MathScore': math_score,
-        'ReadingScore': reading_score,
-        'WritingScore': writing_score
+        'SES_Quartile': 2,  # Default middle quartile
+        'StudyHours': 10,    # Default value
+        'TestScore_Math': math_score,
+        'TestScore_Reading': reading_score,
+        'TestScore_Science': (math_score + reading_score) // 2,  # Estimate science score
+        'AttendanceRate': attendance / 100,
+        'Age': age,
+        'InternetAccess': 1 if internet_access == "Yes" else 0,
+        'ParentSupport': 1 if parent_support == "Yes" else 0,
+        'PartTimeJob': 1 if part_time_job == "Yes" else 0,
+        'Romantic': 1 if romantic == "Yes" else 0,
+        'Grade': 10,  # Default value
+        'Extracurricular': 0,
+        'FreeTime': 0,
+        'GoOut': 0
     }
     
-    return pd.DataFrame([input_data])
+    # Create a button for prediction
+    submitted = st.button("Predict GPA")
+    
+    # Convert to DataFrame with columns in the correct order
+    # Get the feature names in the order they were used during training
+    # This is a best guess - you may need to adjust this order based on your training data
+    feature_order = [
+        'Gender', 'Race', 'ParentalEducation', 'SchoolType', 'Locale',
+        'SES_Quartile', 'StudyHours', 'TestScore_Math', 'TestScore_Reading',
+        'TestScore_Science', 'AttendanceRate', 'Age', 'InternetAccess',
+        'ParentSupport', 'PartTimeJob', 'Romantic', 'Grade', 'Extracurricular',
+        'FreeTime', 'GoOut'
+    ]
+    
+    # Ensure all features are in the correct order
+    ordered_data = {feature: input_data[feature] for feature in feature_order}
+    
+    return pd.DataFrame([ordered_data]), submitted
 
 # Main app
 def main():
@@ -55,58 +140,20 @@ def main():
     Please fill in the student's information below.
     """)
     
-    # Create input form
-    with st.form("student_info"):
-        st.header("Student Information")
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            gender = st.selectbox("Gender", ["Female", "Male"])
-            race = st.selectbox("Race/Ethnicity", 
-                             ["Black", "White", "Hispanic", 
-                              "Two or more races", "Asian", "Other"])
-            parental_edu = st.selectbox("Parental Education Level",
-                                     ["High School", "Less than High School",
-                                      "Bachelor's Degree or Higher", "Some College"])
-            school_type = st.selectbox("School Type", ["Public", "Private"])
-            
-        with col2:
-            locale = st.selectbox("Locale", 
-                                ["Suburban", "City", "Town", "Rural"])
-            lunch = st.selectbox("Lunch Type", 
-                               ["Standard", "Free/Reduced"])
-            test_prep = st.selectbox("Test Preparation", 
-                                   ["None", "Completed"])
-            attendance = st.slider("Attendance Rate (%)", 0, 100, 90)
-        
-        st.subheader("Test Scores (0-100)")
-        score_col1, score_col2, score_col3 = st.columns(3)
-        with score_col1:
-            math_score = st.number_input("Math Score", 0, 100, 70)
-        with score_col2:
-            reading_score = st.number_input("Reading Score", 0, 100, 75)
-        with score_col3:
-            writing_score = st.number_input("Writing Score", 0, 100, 72)
-        
-        submitted = st.form_submit_button("Predict GPA")
-    
     # Load model
     model = load_model()
     
+    if model is None:
+        st.warning("Model not found. Please train the model first using 1st.py")
+        return
+    
+    # Get input data from the form
+    input_df, submitted = preprocess_input()
+    
     if submitted:
-        if model is None:
-            st.warning("Model not found. Please train the model first using 1st.py")
-        else:
-            # Preprocess input
-            input_data = preprocess_input(
-                gender, race, parental_edu, school_type, locale,
-                lunch, test_prep, attendance, 
-                math_score, reading_score, writing_score
-            )
-            
+        try:
             # Make prediction
-            prediction = model.predict(input_data)
+            prediction = model.predict(input_df)
             
             # Display results
             st.subheader("Prediction Results")
@@ -123,12 +170,23 @@ def main():
             # Show feature importance (if available)
             st.subheader("Tips for Improvement")
             st.write("To improve the student's predicted GPA:")
+            
+            attendance = input_df['AttendanceRate'].values[0] * 100  # Convert back to percentage
             if attendance < 95:
-                st.write("→ Increase attendance rate (current: {}%)".format(attendance))
-            if min(math_score, reading_score, writing_score) < 70:
+                st.write(f"→ Increase attendance rate (current: {attendance:.0f}%)")
+                
+            min_score = min(input_df['TestScore_Math'].values[0], 
+                          input_df['TestScore_Reading'].values[0],
+                          input_df['TestScore_Science'].values[0])
+            if min_score < 70:
                 st.write("→ Focus on improving the lowest test score")
-            if test_prep == "None":
-                st.write("→ Consider completing test preparation")
+                
+            if input_df['StudyHours'].values[0] < 15:
+                st.write(f"→ Increase study hours (current: {input_df['StudyHours'].values[0]} hours/week)")
+                
+        except Exception as e:
+            st.error(f"An error occurred during prediction: {str(e)}")
+            st.warning("Please check if all required features are provided correctly.")
 
 if __name__ == "__main__":
     main()
