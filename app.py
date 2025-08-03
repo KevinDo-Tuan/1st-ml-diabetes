@@ -31,13 +31,13 @@ def preprocess_input():
     gender_map = {"Female": 0, "Male": 1}
     race_map = {
         "Black": 0, "White": 1, "Hispanic": 2, 
-        "Two or more": 3, "Asian": 4, "Other": 5
+        "Two-or-more": 3, "Asian": 4, "Other": 5
     }
     edu_map = {
-        "High School": 0, 
-        "Less than High School": 1, 
-        "Bachelor's Degree or Higher": 2, 
-        "Some College": 3
+        "HS": 0, 
+        "<HS": 1, 
+        "Bachelors+": 2, 
+        "SomeCollege": 3
     }
     school_map = {"Public": 0, "Private": 1}
     locale_map = {"Suburban": 0, "City": 1, "Town": 3, "Rural": 4}
@@ -51,10 +51,10 @@ def preprocess_input():
         gender = st.selectbox("Gender", ["Female", "Male"])
         race = st.selectbox("Race/Ethnicity", 
                          ["Black", "White", "Hispanic", 
-                          "Two or more", "Asian", "Other"])
+                          "Two-or-more", "Asian", "Other"])
         parental_edu = st.selectbox("Parental Education Level",
-                                 ["High School", "Less than High School",
-                                  "Bachelor's Degree or Higher", "Some College"])
+                                 ["HS", "<HS",
+                                  "Bachelors+", "SomeCollege"])
         school_type = st.selectbox("School Type", ["Public", "Private"])
         
     with col2:
@@ -65,15 +65,6 @@ def preprocess_input():
         test_prep = st.selectbox("Test Preparation", 
                                ["None", "Completed"])
         attendance = st.slider("Attendance Rate (%)", 0, 100, 90)
-    
-    st.subheader("Test Scores (0-100)")
-    score_col1, score_col2, score_col3 = st.columns(3)
-    with score_col1:
-        math_score = st.number_input("Math Score", 0, 100, 70)
-    with score_col2:
-        reading_score = st.number_input("Reading Score", 0, 100, 75)
-    with score_col3:
-        writing_score = st.number_input("Writing Score", 0, 100, 72)
     
     # Additional required fields with default values
     st.subheader("Additional Information")
@@ -86,51 +77,33 @@ def preprocess_input():
         part_time_job = st.selectbox("Part-time Job", ["Yes", "No"])
         romantic = st.selectbox("In a Relationship", ["Yes", "No"])
         
-    # Create input dictionary with exact feature names from training
-    # Note: The order of these features must match exactly with the training data
+    # Create input dictionary with exact feature names and order from training
     input_data = {
+        'Age': age,
+        'Grade': 10,  # Default value
         'Gender': gender_map[gender],
         'Race': race_map[race],
+        'SES_Quartile': 2,  # Default middle quartile
         'ParentalEducation': edu_map[parental_edu],
         'SchoolType': school_map[school_type],
         'Locale': locale_map[locale],
-        'SES_Quartile': 2,  # Default middle quartile
-        'StudyHours': 10,    # Default value
-        'TestScore_Math': math_score,
-        'TestScore_Reading': reading_score,
-        'TestScore_Science': (math_score + reading_score) // 2,  # Estimate science score
         'AttendanceRate': attendance / 100,
-        'Age': age,
+        'StudyHours': 10,    # Default value
         'InternetAccess': 1 if internet_access == "Yes" else 0,
-        'ParentSupport': 1 if parent_support == "Yes" else 0,
+        'Extracurricular': 0,  # Default value
         'PartTimeJob': 1 if part_time_job == "Yes" else 0,
+        'ParentSupport': 1 if parent_support == "Yes" else 0,
         'Romantic': 1 if romantic == "Yes" else 0,
-        'Grade': 10,  # Default value
-        'Extracurricular': 0,
-        'FreeTime': 0,
-        'GoOut': 0
+        'FreeTime': 0,  # Default value
+        'GoOut': 0,     # Default value
+        
     }
     
     # Create a button for prediction
-    submitted = st.button("Predict GPA")
+    submitted = st.button("Predict the GPA")
     
-    # Convert to DataFrame with columns in the correct order
-    # Get the feature names in the order they were used during training
-    # This is a best guess - you may need to adjust this order based on your training data
-    feature_order = [
-        'Gender', 'Race', 'ParentalEducation', 'SchoolType', 'Locale',
-        'SES_Quartile', 'StudyHours', 'TestScore_Math', 'TestScore_Reading',
-        'TestScore_Science', 'AttendanceRate', 'Age', 'InternetAccess',
-        'ParentSupport', 'PartTimeJob', 'Romantic', 'Grade', 'Extracurricular',
-        'FreeTime', 'GoOut'
-    ]
-    
-    # Ensure all features are in the correct order
-    ordered_data = {feature: input_data[feature] for feature in feature_order}
-    
-    return pd.DataFrame([ordered_data]), submitted
+    return input_data, submitted
 
-# Main app
 def main():
     st.set_page_config(page_title="Student Performance Predictor", page_icon="")
     
@@ -148,41 +121,42 @@ def main():
         return
     
     # Get input data from the form
-    input_df, submitted = preprocess_input()
+    input_data, submitted = preprocess_input()
     
     if submitted:
         try:
+            # Convert input data to DataFrame
+            input_df = pd.DataFrame([input_data])
+            
             # Make prediction
             prediction = model.predict(input_df)
             
-            # Display results
-            st.subheader("Prediction Results")
-            st.metric(label="Predicted GPA", value=f"{prediction[0]:.2f}")
+            # Display the prediction
+            st.success(f"Predicted GPA: {prediction[0]:.2f}")
             
             # Add some interpretation
             if prediction[0] >= 3.5:
                 st.success("Excellent performance! This student is likely to excel academically.")
-            elif prediction[0] >= 2.5:
-                st.info("Good performance. This student is on the right track!")
+            elif prediction[0] >= 3.0:
+                st.info("Good performance. This student is doing well academically.")
+            elif prediction[0] >= 2.0:
+                st.warning("Average performance. Some improvement areas exist.")
             else:
-                st.warning("May need additional support. Consider academic interventions.")
+                st.error("Below average performance. Consider additional support.")
             
-            # Show feature importance (if available)
-            st.subheader("Tips for Improvement")
-            st.write("To improve the student's predicted GPA:")
-            
+            # Show the input values for reference
+            with st.expander("View Input Values"):
+                st.json(input_data)
+                
+            # Provide improvement suggestions
             attendance = input_df['AttendanceRate'].values[0] * 100  # Convert back to percentage
             if attendance < 95:
                 st.write(f"→ Increase attendance rate (current: {attendance:.0f}%)")
                 
-            min_score = min(input_df['TestScore_Math'].values[0], 
-                          input_df['TestScore_Reading'].values[0],
-                          input_df['TestScore_Science'].values[0])
-            if min_score < 70:
-                st.write("→ Focus on improving the lowest test score")
-                
             if input_df['StudyHours'].values[0] < 15:
                 st.write(f"→ Increase study hours (current: {input_df['StudyHours'].values[0]} hours/week)")
+                
+            st.write("→ Focus on maintaining good study habits and attendance")
                 
         except Exception as e:
             st.error(f"An error occurred during prediction: {str(e)}")
